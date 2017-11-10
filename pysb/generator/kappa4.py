@@ -106,9 +106,8 @@ class KappaGenerator(object):
 
 def format_monomer_site(monomer, site):
     ret = site
-    if site in monomer.site_states:
-        for state in monomer.site_states[site]:
-            ret += '~' + state
+    for site in monomer.site_states:
+        ret += '{%s}' % ','.join(monomer.site_states[site])
     return ret
 
 def format_reactionpattern(rp, padding=0):
@@ -148,7 +147,7 @@ def format_site_condition(site, state):
                               "to a single site.")
     # Site with state
     elif isinstance(state, basestring):
-        state_code = '{%s}' % state
+        state_code = '{%s}[.]' % state
     # Site with state and a bond
     elif isinstance(state, tuple):
         # If the bond is ANY
