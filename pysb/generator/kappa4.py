@@ -11,11 +11,9 @@ except NameError:
 
 class KappaGenerator(object):
 
-    # Dialect can be either 'complx' or 'kasim' (default)
-    def __init__(self, model, dialect='kasim', _warn_no_ic=True):
+    def __init__(self, model, _warn_no_ic=True):
         self.model = model
         self.__content = None
-        self.dialect = dialect
         self._warn_no_ic = _warn_no_ic
 
     def get_content(self):
@@ -25,14 +23,8 @@ class KappaGenerator(object):
 
     def generate_content(self):
         self.__content = ''
-        #self.generate_compartments()
-
-        # Agent declarations appear to be required in kasim
-        # but prohibited in complx
-        if (self.dialect == 'kasim'):
-            self.generate_molecule_types() 
-            # Parameters, variables, and expressions are allowed in kasim
-            self.generate_parameters()
+        self.generate_molecule_types()
+        self.generate_parameters()
 
         self.generate_reaction_rules()
         self.generate_observables()
@@ -50,17 +42,6 @@ class KappaGenerator(object):
                 str_expr = str_expr.replace(n,"'%s'"%n)
             self.__content += "%%var: '%s' %s\n" % (e.name, str_expr)
         self.__content += "\n"
-
-    #def generate_compartments(self):
-    #    self.__content += "begin compartments\n"
-    #    for c in self.model.compartments:
-    #        if c.parent is None:
-    #            parent_name = ''
-    #        else:
-    #            parent_name = c.parent.name
-    #        self.__content += ("  %s  %d  %f  %s\n" %
-    #                          (c.name, c.dimension, c.size, parent_name))
-    #    self.__content += "end compartments\n\n"
 
     def generate_molecule_types(self):
         for m in self.model.monomers:
@@ -81,14 +62,7 @@ class KappaGenerator(object):
                                                     padding=max_patterns)
             arrow = '->'
 
-            if isinstance(r.rate_forward,pysb.core.Expression) and \
-               self.dialect == 'complx':
-                raise KappaException("Expressions are not supported by complx.")
-            # Get the rate code depending on the dialect
-            if self.dialect == 'kasim':
-                f_rate_code = "'" + r.rate_forward.name + "'"
-            else:
-                f_rate_code = float(r.rate_forward.value)
+            f_rate_code = "'" + r.rate_forward.name + "'"
 
             self.__content += ("%s %s %s %s @ %s") % \
                 (label, reactants_code, arrow, products_code, f_rate_code)
@@ -96,15 +70,7 @@ class KappaGenerator(object):
 
             # Add the reverse reaction
             if r.is_reversible:
-                if isinstance(r.rate_reverse,pysb.core.Expression) and \
-                   self.dialect == 'complx':
-                    raise KappaException("Expressions are not supported by "
-                                         "complx.")
-                # Get the rate code depending on the dialect
-                if self.dialect == 'kasim':
-                    r_rate_code = "'" + r.rate_reverse.name + "'"
-                else:
-                    r_rate_code = float(r.rate_reverse.value)
+                r_rate_code = "'" + r.rate_reverse.name + "'"
 
                 label = "'" + r.name + '_rev' + "'"
                 self.__content += ("%s %s %s %s @ %s") % \
@@ -119,16 +85,7 @@ class KappaGenerator(object):
         for obs in self.model.observables:
             name = "'" + obs.name + "'"
             observable_code = format_reactionpattern(obs.reaction_pattern)
-            # In the near future (KaSim 4.0), the observable syntax will
-            # require pipe characters around the expression. However, for the
-            # time being we'll stick with the old syntax for backwards
-            # compatibility
-            #if self.dialect == 'kasim':
-            #    self.__content += ("%%obs: %s |%s|\n") % \
-            #                      (name, observable_code)
-            #else:
-            #    self.__content += ("%%obs: %s %s\n") % (name, observable_code)
-            self.__content += ("%%obs: %s %s\n") % (name, observable_code)
+            self.__content += ("%%obs: %s |%s|\n") % (name, observable_code)
 
         self.__content += "\n"
 
@@ -143,14 +100,7 @@ class KappaGenerator(object):
             param = self.model.initial_conditions[i][1]
             #self.__content += ("%%init:  %-" + str(max_length) + \
             #                  "s   %s\n") % (code, param.name)
-            if (self.dialect == 'kasim'):
-                self.__content += ("%%init: '%s' %s\n") % (param.name, code)
-            else:
-                if isinstance(param,pysb.core.Expression):
-                    raise KappaException("complx does not support Expressions.")
-                # Switched from %g (float) to %d (int) because kappa didn't
-                # like scientific notation for large integers
-                self.__content += "%%init: %10d * %s\n" % (param.value, code)
+            self.__content += ("%%init: '%s' %s\n") % (param.name, code)
         self.__content += "\n"
 
 
